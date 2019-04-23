@@ -7,46 +7,21 @@ pipeline {
   triggers {
     eventTrigger simpleMatch('hello-api-deploy-event')
   }
-  stage('Web Tests') {
+  stages {
+    stage('Test') {
       agent {
         kubernetes {
-          label 'nodejs-testcafe'
+          label 'nodejs-app-inline'
           yamlFile 'nodejs-pod.yaml'
         }
       }
-      when {
-        beforeAgent true
-        branch 'development'
+      steps {
+        checkout scm
+        container('nodejs') {
+          echo 'Hello World!'   
+          sh 'node --version'
+        }
       }
-      stages {
-        stage('Nodejs Setup') {
-          steps {
-            checkout scm
-            defineProps('.nodejs-app', [npmPackages: 'express pug'])            
-            container('nodejs') {
-              sh """
-                npm i -S ${npmPackages}
-                node ./hello.js &
-              """
-            }
-          }   
-        }
-        stage('Testcafe') {
-          steps {
-            container('testcafe') {
-              sh '/opt/testcafe/docker/testcafe-docker.sh "chromium --no-sandbox" tests/*.js -r xunit:res.xml'
-            }
-          }   
-        }
-      }  
-      post {
-        success {
-          stash name: 'app', includes: '*.js, public/**, views/*, Dockerfile'
-        }
-        always {
-          junit 'res.xml'
-        }
-      } 
     }
     stage('Build and Push Image') {
       when {
@@ -58,4 +33,4 @@ pipeline {
       }
     }
   }
-
+}
